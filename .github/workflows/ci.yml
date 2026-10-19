@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: build + test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned tools (CMake, clang-format, clang-tidy)
+        run: pip install -r tools/requirements.txt
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: Configure (dev preset, -Werror)
+        run: cmake --preset dev
+      - name: Build
+        run: cmake --build --preset dev
+      - name: Test
+        run: ctest --preset dev
+      - name: CLI smoke run against samples
+        shell: bash
+        run: |
+          set +e
+          ./build/dev/binscope inspect samples/synthetic/elf64_hardened.so samples/synthetic/pe64_hardened.exe samples/macho/hello_arm64 --fail-on medium
+          test $? -eq 0 || { echo "clean samples should exit 0"; exit 1; }
+          ./build/dev/binscope inspect samples/synthetic/pe64_packed_like.exe --fail-on high
+          test $? -eq 1 || { echo "packed-like sample should exit 1"; exit 1; }
+          ./build/dev/binscope score samples/synthetic/* samples/macho/*
+          test $? -eq 0 || { echo "score over all samples should exit 0"; exit 1; }
+          ./build/dev/binscope inspect --format sarif samples/synthetic/macho64_wx_synthetic > /dev/null
+          test $? -eq 0 || exit 1
+
+  sanitizers:
+    name: ASan + UBSan tests and fuzz smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tools/requirements.txt
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - run: cmake --preset asan
+      - run: cmake --build --preset asan
+      - name: Tests under ASan + UBSan
+        run: ctest --preset asan
+      - name: Fuzz smoke (50,000 mutated inputs)
+        env:
+          ASAN_OPTIONS: abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./build/asan/fuzz_smoke --iterations 50000 samples
+
+  libfuzzer:
+    name: libFuzzer (Linux, 60 s)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tools/requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Configure and build fuzz targets
+        run: |
+          cmake --preset fuzz
+          cmake --build --preset fuzz --target fuzz_parse
+          test -x build/fuzz/fuzz_parse
+      - name: Run fuzz_parse for 60 seconds
+        run: |
+          mkdir -p corpus
+          cp samples/synthetic/* samples/macho/* corpus/
+          ./build/fuzz/fuzz_parse -max_total_time=60 -max_len=65536 -rss_limit_mb=2048 corpus
+
+  lint:
+    name: clang-format + clang-tidy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tools/requirements.txt
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: clang-format
+        run: |
+          clang-format --version
+          clang-format --dry-run --Werror include/binscope/*.hpp src/lib/*.cpp src/lib/*.hpp \
+            src/cli/*.cpp src/cli/*.hpp tests/*.cpp tests/*.hpp fuzz/*.cpp fuzz/*.hpp
+      - name: Generate compile_commands.json
+        env:
+          CXX: clang++
+        run: cmake --preset dev -DBINSCOPE_BUILD_TESTS=OFF
+      - name: clang-tidy (library sources)
+        run: |
+          clang-tidy --version
+          clang-tidy -p build/dev src/lib/*.cpp

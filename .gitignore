@@ -1,0 +1,22 @@
+# Build output and local tools
+build/
+.tools/
+out/
+corpus/
+crash-*
+leak-*
+timeout-*
+
+# Other toolchains used across the portfolio
+.gradle/
+*.class
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+
+# Report files written by the tool
+*.sarif
+report*.json
+reports/

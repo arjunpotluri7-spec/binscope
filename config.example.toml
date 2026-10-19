@@ -1,0 +1,33 @@
+# Binscope configuration example. Every key is optional; values shown are the defaults.
+# Pass it with:  binscope inspect --config config.example.toml FILE...
+# The format is a strict TOML subset: unknown sections or keys are reported as errors.
+
+[thresholds]
+entropy_high = 7.2            # bits/byte above which a region counts as high entropy
+min_entropy_bytes = 512       # regions smaller than this are not judged on entropy
+large_section_bytes = 65536   # BS003 only fires for non-executable regions this large
+few_imports = 5               # BS007 fires at or below this many imported functions
+diff_entropy_delta = 0.5      # `diff` reports entropy changes larger than this
+
+[limits]
+max_file_size_mib = 256       # larger inputs are refused (also --max-size-mib)
+max_sections = 4096           # per table: sections, program headers, segments
+max_load_commands = 4096      # Mach-O load commands
+max_libraries = 1024          # imported libraries / DLLs
+max_imports = 20000           # imported functions in total
+max_symbols = 200000          # symbol table entries scanned
+max_dynamic = 4096            # ELF dynamic entries
+max_fat_slices = 30           # universal binary slices
+
+[points]
+# Override how many points a rule adds to the 0-100 score. `binscope rules` lists them.
+# BS001 = 30
+# BS019 = 0
+
+[severity]
+# Override a rule's severity (info, low, medium, high); affects --fail-on and SARIF level.
+# BS003 = "low"
+
+[rules]
+# Rules listed here never fire.
+disabled = []

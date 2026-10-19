@@ -1,0 +1,54 @@
+---
+# Checks run on the library sources in CI (see .github/workflows/ci.yml).
+Checks: >
+  bugprone-*,
+  cert-*,
+  cppcoreguidelines-*,
+  performance-*,
+  readability-braces-around-statements,
+  readability-const-return-type,
+  readability-container-size-empty,
+  readability-delete-null-pointer,
+  readability-duplicate-include,
+  readability-else-after-return,
+  readability-inconsistent-declaration-parameter-name,
+  readability-make-member-function-const,
+  readability-misleading-indentation,
+  readability-redundant-control-flow,
+  readability-redundant-string-cstr,
+  readability-simplify-boolean-expr,
+  readability-static-accessed-through-instance,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-init-variables,
+  -cert-err58-cpp,
+  -cert-dcl21-cpp,
+  -bugprone-branch-clone,
+  -bugprone-switch-missing-default-case,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
+# Why the exclusions:
+#  easily-swappable-parameters: (offset, length) pairs are idiomatic in a byte reader.
+#  avoid-magic-numbers: file formats are defined by magic numbers; named constants are
+#    used where a value means something, raw offsets inside one record are clearer inline.
+#  pro-bounds-*/avoid-c-arrays/array-to-pointer-decay: small fixed char buffers for
+#    snprintf formatting; all file data goes through bounds-checked ByteView instead.
+#  pro-type-vararg: snprintf for fixed-width number formatting.
+#  avoid-const-or-ref-data-members: the parsers hold a const reference to their Limits.
+#  non-private-member-variables-in-classes: plain data structs by design.
+#  init-variables: values come from StructReader reads checked as a group.
+#  cert-err58-cpp: static tables of string literals cannot throw in practice.
+#  branch-clone / switch-missing-default-case: name tables map distinct constants to the
+#    same text and handle unknown values after the switch.
+#  pro-bounds-avoid-unchecked-container-access: operator[] is only used with indices
+#    bounded by the loop over the container itself; offsets taken from the file never
+#    index containers directly and always go through ByteView.
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(include/binscope|src/lib)/.*'
+...

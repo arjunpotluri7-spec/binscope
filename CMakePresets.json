@@ -1,0 +1,72 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": "base",
+      "displayName": "Development (debug info, warnings as errors)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BINSCOPE_WERROR": "ON"
+      }
+    },
+    {
+      "name": "asan",
+      "inherits": "base",
+      "displayName": "AddressSanitizer + UndefinedBehaviorSanitizer",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BINSCOPE_WERROR": "ON",
+        "BINSCOPE_SANITIZE": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Optimised release build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BINSCOPE_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "fuzz",
+      "inherits": "base",
+      "displayName": "libFuzzer targets (clang with libFuzzer, e.g. Linux)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "ENABLE_FUZZERS": "ON",
+        "BINSCOPE_BUILD_TESTS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "asan", "configurePreset": "asan" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "fuzz", "configurePreset": "fuzz" }
+  ],
+  "testPresets": [
+    { "name": "dev", "configurePreset": "dev", "output": { "outputOnFailure": true } },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": { "outputOnFailure": true },
+      "environment": {
+        "ASAN_OPTIONS": "abort_on_error=1:strict_string_checks=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      }
+    }
+  ]
+}
