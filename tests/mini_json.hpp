@@ -16,10 +16,14 @@ struct Value {
     double n = 0.0;
     std::string s;
     std::vector<Value> items;
-    std::vector<std::pair<std::string, Value>> members;
+    // Object members are kept as parallel key/value vectors: std::vector<Value> may hold the
+    // still-incomplete Value (C++17), but std::pair<std::string, Value> may not, and libstdc++
+    // rejects it.
+    std::vector<std::string> keys;
+    std::vector<Value> values;
 
     [[nodiscard]] bool has(const std::string& key) const {
-        for (const auto& [k, v] : members) {
+        for (const auto& k : keys) {
             if (k == key) {
                 return true;
             }
@@ -27,9 +31,9 @@ struct Value {
         return false;
     }
     [[nodiscard]] const Value& at(const std::string& key) const {
-        for (const auto& [k, v] : members) {
-            if (k == key) {
-                return v;
+        for (std::size_t i = 0; i < keys.size(); ++i) {
+            if (keys[i] == key) {
+                return values[i];
             }
         }
         throw std::runtime_error("missing key: " + key);
@@ -143,7 +147,8 @@ private:
             while (true) {
                 std::string k = str();
                 expect(':');
-                v.members.emplace_back(std::move(k), value());
+                v.keys.push_back(std::move(k));
+                v.values.push_back(value());
                 ws();
                 if (i_ < t_.size() && t_[i_] == ',') {
                     ++i_;
